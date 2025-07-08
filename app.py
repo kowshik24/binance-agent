@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from tavily import TavilyClient
 import time
+from datetime import timedelta
 load_dotenv()
 
 # --- Pydantic Models for Structured Responses ---
@@ -110,6 +111,7 @@ def generate_search_queries(market_data, balances, available_funds, openai_api_k
     - Major upcoming events (e.g., ETF approvals, forks, exchange issues)
     - Portfolio-specific risks or opportunities
     - Any urgent warnings or opportunities for the user's holdings
+    - It's {datetime.now().strftime('%Y-%m-%d')}, so consider the latest trends and news.
     
     **User's Portfolio:**
     {json.dumps(balances, indent=2)}
@@ -152,6 +154,7 @@ with st.sidebar:
     openai_api_key = st.text_input("OpenAI API Key", type="password", help="Get yours from platform.openai.com")
     binance_api_key = st.text_input("Binance API Key (Read-Only)", type="password")
     binance_api_secret = st.text_input("Binance API Secret (Read-Only)", type="password")
+    tavily_api_key = st.text_input("Tavily API Key", type="password", help="Get yours from tavily.com")
     analyze_button = st.button("Analyze & Get Suggestions", use_container_width=True)
 
     # Load all the keys from the environment variables
@@ -161,6 +164,8 @@ with st.sidebar:
         binance_api_key = os.getenv("BINANCE_API_KEY")
     if not binance_api_secret:
         binance_api_secret = os.getenv("BINANCE_API_SECRET")
+    if not tavily_api_key:
+        tavily_api_key = os.getenv("TAVILY_API_KEY")
 
 def reset_app():
     """Reset the app to initial state"""
@@ -349,24 +354,128 @@ if st.session_state.stage == 'analysis_complete':
     # --- Display Individual Agent Reports for Transparency ---
     st.markdown("---")
     st.header("🔍 Detailed Agent Reports")
+    
+    # Market Analyst Report with better UI
     with st.expander("Market Analyst Report"):
         if market_report:
-            st.json(market_report.model_dump())
+            # Market Sentiment section
+            st.markdown("<p style='color:#555;font-size:14px;font-weight:500;margin-bottom:0'>Market Sentiment</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='color:#333;font-size:22px;margin-top:0;margin-bottom:20px'>{market_report.overall_market_sentiment}</h2>", unsafe_allow_html=True)
+            
+            # Market Trend section
+            st.markdown("<p style='color:#555;font-size:14px;font-weight:500;margin-bottom:0'>Market Trend</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='color:#333;font-size:22px;margin-top:0;margin-bottom:20px'>{market_report.market_trend}</h2>", unsafe_allow_html=True)
+            
+            # Volatility Assessment section
+            st.markdown("<p style='color:#555;font-size:14px;font-weight:500;margin-bottom:0'>Volatility Assessment</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='color:#333;font-size:22px;margin-top:0;margin-bottom:20px'>{market_report.market_volatility_assessment}</h2>", unsafe_allow_html=True)
+            
+            # Recommended Timing section
+            st.markdown("<p style='color:#555;font-size:14px;font-weight:500;margin-bottom:0'>Recommended Timing</p>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='color:#333;font-size:22px;margin-top:0;margin-bottom:20px'>{market_report.recommended_investment_timing}</h2>", unsafe_allow_html=True)
+            
+            # Top Performing Coins section
+            st.markdown("<h3 style='color:#333;font-size:18px;margin-top:30px'>Top Performing Coins</h3>", unsafe_allow_html=True)
+            coins_html = ""
+            for coin in market_report.top_performing_coins:
+                coins_html += f"<span style='background-color:#E8F4F9;padding:5px 10px;margin:5px;border-radius:15px;display:inline-block;font-weight:500'>{coin}</span> "
+            st.markdown(f"<div style='margin:10px 0'>{coins_html}</div>", unsafe_allow_html=True)
+                
+            # Key Market Insights section
+            st.markdown("<h3 style='color:#333;font-size:18px;margin-top:30px'>Key Market Insights</h3>", unsafe_allow_html=True)
+            for idx, insight in enumerate(market_report.key_market_insights):
+                st.markdown(f"<div style='background-color:#f8f9fa;padding:10px 15px;margin:8px 0;border-radius:5px;border-left:4px solid #4e8098'>{insight}</div>", unsafe_allow_html=True)
         else:
             st.error("Market analysis failed to generate.")
+    
+    # Portfolio Analyst Report with better UI
     with st.expander("Portfolio Analyst Report"):
         if portfolio_report:
-            st.json(portfolio_report.model_dump())
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Portfolio Value", f"${portfolio_report.current_portfolio_value_usd:.2f}")
+            with col2:
+                st.metric("Diversification Score", f"{portfolio_report.diversification_score}/10")
+            with col3:
+                st.metric("Risk Level", portfolio_report.portfolio_risk_level)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Overweight Assets")
+                for asset in portfolio_report.overweight_assets:
+                    st.markdown(f"<div style='background-color:#FFE2E2;padding:8px;margin:5px 0;border-radius:5px;border-left:4px solid #FF7575'>⚠️ {asset}</div>", unsafe_allow_html=True)
+            
+            with col2:
+                st.subheader("Underweight Opportunities")
+                for asset in portfolio_report.underweight_opportunities:
+                    st.markdown(f"<div style='background-color:#E2FFE2;padding:8px;margin:5px 0;border-radius:5px;border-left:4px solid #75FF75'>💡 {asset}</div>", unsafe_allow_html=True)
+            
+            st.subheader("Rebalancing Suggestions")
+            for suggestion in portfolio_report.rebalancing_suggestions:
+                st.markdown(f"<div style='background-color:#f8f9fa;padding:10px;margin:5px 0;border-radius:5px;border-left:4px solid #9575FF'>🔄 {suggestion}</div>", unsafe_allow_html=True)
         else:
             st.error("Portfolio analysis failed to generate.")
+    
+    # Risk Assessment Report with better UI
     with st.expander("Risk Assessment Report"):
         if risk_report:
-            st.json(risk_report.model_dump())
+            # Create a color based on risk level
+            risk_color = "#FF5252" if risk_report.overall_risk_level == "HIGH" else "#FFC107" if risk_report.overall_risk_level == "MEDIUM" else "#4CAF50"
+            
+            st.markdown(f"<div style='background-color:{risk_color}25;padding:15px;border-radius:10px;border:2px solid {risk_color}'><h3 style='color:{risk_color};margin:0'>Overall Risk: {risk_report.overall_risk_level}</h3></div>", unsafe_allow_html=True)
+            
+            st.subheader("Potential Losses")
+            st.info(risk_report.potential_losses)
+            
+            st.subheader("Risk Factors")
+            for factor in risk_report.risk_factors:
+                st.markdown(f"<div style='background-color:#ffecb3;padding:8px;margin:5px 0;border-radius:5px;border-left:4px solid #FFA000'>⚠️ {factor}</div>", unsafe_allow_html=True)
+            
+            st.subheader("Risk Mitigation Strategies")
+            for strategy in risk_report.risk_mitigation_strategies:
+                st.markdown(f"<div style='background-color:#E8F5E9;padding:8px;margin:5px 0;border-radius:5px;border-left:4px solid #43A047'>🛡️ {strategy}</div>", unsafe_allow_html=True)
+            
+            st.subheader("Investment Warning Flags")
+            for flag in risk_report.investment_warning_flags:
+                st.markdown(f"<div style='background-color:#FFEBEE;padding:8px;margin:5px 0;border-radius:5px;border-left:4px solid #E53935'>🚩 {flag}</div>", unsafe_allow_html=True)
+            
+            st.subheader("Recommended Position Size")
+            st.success(risk_report.recommended_position_size)
         else:
             st.error("Risk assessment failed to generate.")
+    
+    # Display Web Search Context in a more readable format
     st.markdown("---")
     st.header("🌐 Web Search Context Used")
-    st.json(st.session_state.search_context)
+    
+    if st.session_state.search_context:
+        tabs = st.tabs([f"Query {i+1}" for i in range(len(st.session_state.search_context))])
+        
+        for i, (tab, search_item) in enumerate(zip(tabs, st.session_state.search_context)):
+            with tab:
+                query = search_item.get('query', 'No query')
+                results = search_item.get('results', {})
+                
+                st.markdown(f"<div style='background-color:#E3F2FD;padding:10px;border-radius:5px;margin-bottom:15px'><h3 style='margin:0'>🔍 {query}</h3></div>", unsafe_allow_html=True)
+                
+                if 'answer' in results and results['answer']:
+                    st.markdown("### Summary")
+                    st.markdown(f"<div style='background-color:#EDE7F6;padding:15px;border-radius:10px;margin:10px 0'>{results['answer']}</div>", unsafe_allow_html=True)
+                
+                if 'results' in results and results['results']:
+                    st.markdown("### Sources")
+                    for j, result in enumerate(results['results']):
+                        with st.container():
+                            col1, col2 = st.columns([1, 3])
+                            with col1:
+                                if 'favicon' in result and result['favicon']:
+                                    st.markdown(f"<img src='{result['favicon']}' style='max-height:20px;max-width:20px'>", unsafe_allow_html=True)
+                            with col2:
+                                st.markdown(f"**[{result.get('title', 'No title')}]({result.get('url', '#')})**")
+                        
+                        st.markdown(f"<div style='background-color:#F5F5F5;padding:10px;border-radius:5px;margin:5px 0 15px 0'>{result.get('content', 'No content available')}</div>", unsafe_allow_html=True)
+    else:
+        st.info("No web search context available.")
     
     # Reset button
     if st.button("Start New Analysis", key="reset_analysis"):

@@ -125,6 +125,26 @@ binance-agent/
 - **Pydantic** - Data validation and settings management
 - **Python-dotenv** - Environment variable management
 
+## 📸 Snapshots
+
+Here are some snapshots of the application in action:
+
+![Snapshot 1](snapshots/2.png)
+*Initial Portfolio Analysis Screen*
+
+![Snapshot 2](snapshots/1.png)
+*Market Analysis Dashboard*
+
+![Snapshot 3](snapshots/5.png)
+*Risk Assessment View*
+
+![Spapshot 4](snapshots/4.png)
+*Web Seach Context Used*
+
+![Snapshot 5](snapshots/3.png)
+*Final Investment Recommendations*
+
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
